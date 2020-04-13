@@ -1,0 +1,12 @@
+
+__pycache__/
+
+\.vscode/
+
+\.idea/
+
+\images/
+
+model.obj
+
+TODO_FOR_PYNN.txt
