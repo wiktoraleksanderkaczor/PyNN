@@ -8,7 +8,7 @@ import numpy as np
 from neuron import Neuron
 from optimizer import gradient_descent, stochastic_gradient_descent
 from cost import mean_squared_loss
-from training import update_weights_and_bias, get_delta_structure, get_delta_bias_structure, momentum_scaling
+from training import update_weights_and_bias, get_delta_structure, get_delta_bias_structure, apply_learning_rate, calculate_momentum
 from prettytable import PrettyTable
 
 
@@ -117,6 +117,36 @@ class Model:
         # Return activation for last layer.
         return feed_forward
 
+    def rip_layer_biases(self, layer):
+        """
+            Return a 2-dimensional array of biases for a given layer. Ensure this isn't called 
+            for layer 0 since it doesn't have any biases.
+
+            Args:
+                layer (int): A integer value representing the layer for which the biases will be returned.
+
+            Returns:
+                biases (numpy.array): A 2-dimensional array containing the biases of the specified layer. 
+                The structure for this array wil be (layer_length x previous_layer_length).
+        """
+
+        # Get the current layer length.
+        layer_length = self.model[self.neuron_num_layer][layer]
+
+        # Get the previous layer length.
+        prev_layer_length = self.model[self.neuron_num_layer][layer - 1]
+
+        # Prepare structure to hold arrays of biases for each neuron in the layer and
+        # ensure they are preinitialized because I cannot set array elements with a sequence.
+        biases = np.zeros(layer_length, dtype=self.precision)
+
+        # Deep-copy array because otherwise it stores the gradients in the
+        # weights and the backpropagation calculation is messed up.
+        for neuron in range(layer_length):
+            biases[neuron] = np.copy(self.list_neurons[layer][neuron].bias)
+
+        return biases
+
     def rip_layer_weights(self, layer):
         """
             Return a 2-dimensional array of weights for a given layer. Ensure this isn't called 
@@ -169,14 +199,15 @@ class Model:
         table.field_names = ["EPOCH", "EXAMPLE", "ITERATION", "LOSS", "PREDICTED", "AFTER_UPDATE", "CHANGE", "INPUTS"]
 
         # Repeating training the network on the examples for N epochs.
-        for epoch in range(epochs):
+        for epoch in range(epochs): 
+            # Storing scalar loss per epoch
+            scalar_loss = 1
 
             # For each example do...
             for example in range(len(actual)):
-
                 # Create structures for holding the gradient history.
-                momentum = get_delta_structure(self=self, zeros=True)
-                momentum_bias = get_delta_bias_structure(self=self)
+                momentum = get_delta_structure(self=self, fill_zeros=True)
+                momentum_bias = get_delta_bias_structure(self=self, fill_zeros=True)
 
                 # Running multiple iterations for gradient descent.
                 for iteration in range(max_iter):
@@ -185,7 +216,7 @@ class Model:
 
                     # Loss for optimizers has to be a scalar so I'm choosing a sum.
                     scalar_loss = mean_squared_loss(predicted, actual[example])
-
+                    
                     # Set the sign for the scalar loss according to the predicted value.
                     if actual[example] > predicted:
                         scalar_loss = -scalar_loss
@@ -200,35 +231,19 @@ class Model:
                         stochastic_gradient_descent(
                             self, learning_rate=learning_rate, loss=scalar_loss, mini_batch=mini_batch)
 
-                    # Adapt the learning rate for the next iteration.
-                    if learning_rate_function == "momentum":
-                        # Implement learning rate scaling.
-                        for layer in range(len(momentum)):
-                            for neuron in range(len(momentum[layer])):
+                    # Apply the learning rate.
+                    delta, delta_bias = apply_learning_rate(delta, delta_bias, learning_rate)
 
-                                momentum_bias[layer][neuron] = (coefficient * momentum_bias[layer][neuron]) - \
-                                    (learning_rate * delta_bias[layer][neuron])
-
-                                for weight in range(len(momentum[layer][neuron])):
-
-                                    momentum[layer][neuron][weight] = (coefficient * momentum[layer][neuron][weight]) - \
-                                        (learning_rate * delta[layer][neuron][weight])
+                    # Apply momentum from previous iterations.
+                    if learning_rate_function == "momentum":                  
+                        # Calculate the momentum from previous iteration and save it for next iteration too.
+                        momentum, momentum_bias = calculate_momentum(momentum, momentum_bias, delta, delta_bias, coefficient)
                                     
                         # Updating weights and biases using calculated gradients with momentum.
                         update_weights_and_bias(self=self, delta=momentum,
                                 delta_bias=momentum_bias)
 
-
-                    else:
-                        for layer in range(len(delta)):
-                            for neuron in range(len(delta[layer])):
-
-                                delta_bias[layer][neuron] *= learning_rate
-                                
-                                for weight in range(len(delta[layer][neuron])):
-                                
-                                    delta[layer][neuron][weight] *= learning_rate
-                        
+                    elif learning_rate_function == "none":
                         # Updating weights and biases using calculated gradients.
                         update_weights_and_bias(self=self, delta=delta,
                                 delta_bias=delta_bias)
@@ -238,9 +253,13 @@ class Model:
 
                     # Add a row to the PrettyTable with relevant data.
                     table.add_row([(epoch+1), (example+1), (iteration+1), scalar_loss, predicted, predicted_after, (predicted-predicted_after), str(inputs[example])])
-                                        
-                    # Exit if the change was lower than the minimum precision.
-                    if abs(predicted-predicted_after) < min_precision:
-                        break
-        # Print the PrettyTable after all computation.
-        print(table)
+            # Print the PrettyTable at end of epoch.
+            print(table)
+            
+            # Declare a new PrettyTable and define its column names.
+            table = PrettyTable()
+            table.field_names = ["EPOCH", "EXAMPLE", "ITERATION", "LOSS", "PREDICTED", "AFTER_UPDATE", "CHANGE", "INPUTS"]
+            
+            # Exit if the loss for the epoch is lower than the minimum required to spare compute time.
+            if abs(scalar_loss) < min_precision:
+                return

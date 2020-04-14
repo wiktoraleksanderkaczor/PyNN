@@ -20,7 +20,7 @@ def get_activation_values(self):
     return activation_values
 
 
-def get_delta_structure(self, zeros=False):
+def get_delta_structure(self, fill_zeros=False):
     """
         Creating a three-dimensional array to store the gradients for each weight and 
         prefilling it with the weights for each neuron.
@@ -37,18 +37,20 @@ def get_delta_structure(self, zeros=False):
         # Skipping layer 0 because it doesn't have any weights to optimize.
         if layer == 0:
             continue
-        
-        delta[layer] = self.rip_layer_weights(layer=layer)
 
-        if zeros:
+        if fill_zeros:
+            delta[layer] = self.rip_layer_weights(layer=layer)
             for neuron in range(len(delta[layer])):
                 for weight in range(len(delta[layer][neuron])):
                     delta[layer][neuron][weight] = 0
 
+        else:
+            delta[layer] = self.rip_layer_weights(layer=layer)
+
     return delta
 
 
-def get_delta_bias_structure(self):
+def get_delta_bias_structure(self, fill_zeros=False):
     """
         Return a structure to hold the bias gradients for each neuron. Prefilled with zeros.
     """
@@ -56,8 +58,12 @@ def get_delta_bias_structure(self):
     for layer in range(self.num_layers_index):
         if layer == 0:
             continue
-        delta[layer] = zeros(
-            self.model[self.neuron_num_layer][layer], dtype=self.precision)
+
+        if fill_zeros:
+            delta[layer] = zeros(
+                self.model[self.neuron_num_layer][layer], dtype=self.precision)
+        else:
+            delta[layer] = self.rip_layer_biases(layer=layer)
 
     return delta
 
@@ -88,7 +94,27 @@ def update_weights_and_bias(self, delta, delta_bias):
                     delta[layer][neuron][weight]
 
 
-def momentum_scaling(self, momentum, momentum_bias, delta, delta_bias, coefficient, learning_rate):
+def apply_learning_rate(delta, delta_bias, learning_rate):
+    """
+        Updating the weight and bias gradients with the learning rate.
+
+        Args:
+            delta (array): The weight gradients from the current iteration.
+            delta_bias (array): The bias gradients from the current iteration.   
+            learning_rate (float): The learning rate hyper-parameter for calculating the new gradient 
+                update.     
+    """
+    for layer in range(len(delta)):
+        for neuron in range(len(delta[layer])):
+            delta_bias[layer][neuron] *= learning_rate
+
+            for weight in range(len(delta[layer][neuron])):
+                delta[layer][neuron][weight] *= learning_rate
+
+    return delta, delta_bias
+
+
+def calculate_momentum(momentum, momentum_bias, delta, delta_bias, coefficient):
     """
         Updating the weight gradients with the momentum from the previous iteration.
 
@@ -101,21 +127,14 @@ def momentum_scaling(self, momentum, momentum_bias, delta, delta_bias, coefficie
             delta_bias (array): The bias gradients from the current iteration.
             coefficient (float): The percentage value of which to apply momentum for from the previous
                 iteration.
-            learning_rate (float): The learning rate hyper-parameter for calculating the new gradient 
-                update before applying momentum.
     """
-    # For each layer in the model. 
     for layer in range(len(momentum)):
-        # For each neuron in the layer.
         for neuron in range(len(momentum[layer])):
+            momentum_bias[layer][neuron] = (
+                coefficient * momentum_bias[layer][neuron]) + delta_bias[layer][neuron]
 
-            # Calculating the momentum-adjusted gradient for the biases.
-            momentum_bias[layer][neuron] = (coefficient * momentum_bias[layer][neuron]) - \
-                (learning_rate * delta_bias[layer][neuron])
-
-            # Calculating the momentum-adjusted gradients for the weights.
             for weight in range(len(momentum[layer][neuron])):
-                momentum[layer][neuron][weight] = (coefficient * momentum[layer][neuron][weight]) - \
-                    (learning_rate * delta[layer][neuron][weight])
-    
+                momentum[layer][neuron][weight] = (
+                    coefficient * momentum[layer][neuron][weight]) + delta[layer][neuron][weight]
+
     return momentum, momentum_bias
