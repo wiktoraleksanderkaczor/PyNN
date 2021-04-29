@@ -1,29 +1,25 @@
-import pynn
-from activation import *
-from derivative import *
+from pynn import Model
+import activation
+from weights import xavier_init
+from optimizer import gradient_descent
+from cost import mean_squared_loss
 import numpy as np
 
-# Loading network from file.
-#model = pynn.load_network()
+from loader import mnist
+train_data, train_labels, test_data, test_labels = mnist()
 
-# Declaration and definition of model.
-# NOTE: IF CHANGING MODEL AT ALL, YOU HAVE TO REGENERATE AND SAVE THE NETWORK.
-# THIS MEANS THAT IT'S ONLY GOOD FOR QUICK STARTUPS AND INFERENCE BUT NOT DEVELOPMENT.
-model = pynn.create_network(num_layers=5, neurons_layer=[3, 2, 3, 2, 1],
-                            activation_layer=[none, tanh, tanh, tanh, tanh], 
-                            derivative_layer=[none_derivative, tanh_derivative, tanh_derivative, tanh_derivative, tanh_derivative],
-                            weight_function="xavier",
-                            precision=np.float32)
+model = Model(precision=np.float32, weight_init=xavier_init, optimizer=gradient_descent, loss=mean_squared_loss)
+# First is input.
+model.add_layer(784, activation.Input)
+model.add_layer(20, activation.tanh)
+model.add_layer(10, activation.tanh)
 
-"""
-# Run without momentum.
-model.train(epochs=10, function="GD", inputs=[[1,1,0]]*5,
-            actual=np.ones(5), max_iter=5, learning_rate=0.1, min_precision=0.1)
-"""
+import pandas as pd
+label_series = pd.Series(train_labels)
+train_labels = np.array(pd.get_dummies(label_series).values.tolist())
+data = list(zip(train_data, train_labels))
 
-# Run with momentum.
-model.train(epochs=10, function="GD", inputs=[[0,0,1]]*5,
-            actual=np.zeros(5), max_iter=5, learning_rate=0.1, min_precision=0.1, learning_rate_function="momentum", coefficient=0.9)
+model.train(epochs=10, training_data=data, max_iter=5, learning_rate=0.1, min_precision=0.1, learning_rate_function="momentum", coefficient=0.9)
 
 # Saving network to file.
 pynn.save_network(model)

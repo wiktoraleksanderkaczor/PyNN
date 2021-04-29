@@ -1,16 +1,13 @@
 """
     Module: activation.py
     This module contains a definition of various activation functions.
-
-    The functions here are marked with the "@njit" decorator, this means that they're compiled to machine code at runtime.
+    https://github.com/google/jax
 """
-import cmath
 
-from numba import njit
-from numpy import absolute
+import jax.numpy as jnp
+from jax import grad, jit
 
 
-@njit
 def sigmoid(x):
     """
         Return the activation after a sigmoid function
@@ -21,10 +18,10 @@ def sigmoid(x):
         Returns:
             The activation value.
     """
-    return 1 / (1 + absolute(cmath.exp(-x)))
+    return 1 / (1 + jnp.absolute(jnp.exp(-x)))
+sigmoid.derivative = jit(grad(sigmoid))
 
 
-@njit
 def tanh(x):
     """
         Return the activation after a hyperbolic tangent function.
@@ -35,10 +32,10 @@ def tanh(x):
         Returns:
             The activation value.
     """
-    return cmath.tanh(x).real
+    return jnp.tanh(x)
+tanh.derivative = jit(grad(tanh))
 
 
-@njit
 def RELU(x):
     """
         Return the activation after a rectifier linear unit function.
@@ -50,10 +47,10 @@ def RELU(x):
             The activation value.
     """
     return x * (x > 0)
+RELU.derivative = jit(grad(RELU))
 
 
-@njit
-def none(x):
+def Input(x):
     """
         Return the value passed without any activation function applied.
 
@@ -64,3 +61,4 @@ def none(x):
             The activation value.
     """
     return x
+Input.derivative = jit(grad(Input))

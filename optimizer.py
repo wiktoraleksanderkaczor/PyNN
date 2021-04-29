@@ -3,13 +3,12 @@
     This module contains a definition of various optimizing/learning as well as helper functions.
 """
 
-from numpy import zeros
-from training import get_activation_values, get_delta_bias_structure, get_delta_structure
-
+import numpy as np
+from itertools import repeat
 
 # WORK_IN_PROGRESS
 # TODO: Sum neuron influence over layer for multi-layer networks with more than one neuron per layer (excluding the input layer).
-def gradient_descent(self, learning_rate, loss):
+def gradient_descent(model, expected, loss, learning_rate=0.01):
     """
         Calculating the gradients for the weights and biases of each neuron and updating them.
 
@@ -18,59 +17,64 @@ def gradient_descent(self, learning_rate, loss):
 
         The bias gradient is the same except the derivative of the "activation function" so to speak is just 1. 
     """
-    # Get all uncleared activation values.
-    activation_values = get_activation_values(self=self)
+    weight_gradients = [[] for _ in range(len(model["layers"]))]
+    bias_gradients = [[] for _ in range(len(model["layers"]))]
 
-    # Get a structure to store the weight derivatives/gradients that's currently filled with the actual weights.
-    delta = get_delta_structure(self=self)
-    # Get a structure to store the bias derivatives/gradients that's currently filled with zeros.
-    delta_bias = get_delta_bias_structure(self=self)
+    output_layer = model["layers"][-1]["neurons"]
+    node_loss = [np.square(neuron.activation - actual) for neuron, actual in zip(output_layer, expected)]
 
-    for layer in reversed(range(self.num_layers_index)):
-        # Defining some indexing conveniences.
-        activations = self.model[self.neuron_activation_layer][layer]
-        derivative = self.model[self.neuron_derivative_layer][layer]
-        previous_layer = layer + 1
-        next_layer = layer - 1
+    num_layers = len(model["layers"]) - 1
+    for layer in reversed(model["layers"]):
+        # Get current layer number
+        layer_num = model["layers"].index(layer)
+        derivative = layer["activation"].derivative
 
-        # Skipping layer 0 because it doesn't have any weights to optimize.
-        if layer == 0:
-            continue
+        # Get previous layer and number.
+        prev_layer_num = layer_num - 1
+        if prev_layer_num == -1:
+            # Finished
+            return
+        else:
+            prev_layer = model["layers"][prev_layer_num]
 
-        # For each neuron in the layer.
-        for neuron in range(self.model[self.neuron_num_layer][layer]):
-            # Calculating gradients for the output layer.
-            if layer == self.num_layers:
-                # For each connection in the next layer calculate bias for which the derivative is 1.
-                for connection in range(self.model[self.neuron_num_layer][next_layer]):
-                    delta_bias[layer][neuron] = loss * 1 * \
-                        activation_values[next_layer][connection]
+        if not layer_num == num_layers:
+            next_layer_num = layer_num + 1
+            next_layer = model["layers"][next_layer_num]
 
-                # For each connection in the next layer.
-                for connection in range(self.model[self.neuron_num_layer][next_layer]):
-                    # Calculating the gradient for the weight.
-                    delta[layer][neuron][connection] = loss * \
-                        derivative(activation_values[layer][neuron]) * \
-                        activation_values[next_layer][connection]
+        # If output layer
+        if layer_num == num_layers:
+            for neuron in layer["neurons"]:
+                which_neuron = layer["neurons"].index(neuron)
+                neuron_derivative = derivative(neuron.sum)
+                gradients = []
+                for prev_neuron in prev_layer["neurons"]:
+                    gradients.append(
+                        # The loss for this neuron times the derivative of this neuron times the activation of the neuron which the weight is connecting.
+                        node_loss[which_neuron] * neuron_derivative * prev_neuron.activation
+                    )
+                weight_gradients[layer_num].append(
+                    np.asarray(gradients)
+                )
+                """
+                # Bias starts at 0, will always be 0.
+                bias_gradients[layer_num].append(
+                    [neuron.bias * node_loss[which_neuron]]
+                )
+                """
+        else:
+            for neuron in layer["neurons"]:
+                which_neuron = layer["neurons"].index(neuron)
+                neuron_derivative = derivative(neuron.sum)
+                gradients = []
+                for prev_neuron in prev_layer["neurons"]:
+                    gradients.append(
+                        # The loss for this neuron times the derivative of this neuron times the activation of the neuron which the weight is connecting.
+                        neuron_derivative * prev_neuron.activation
+                    )
+                weight_gradients[layer_num].append(
+                    np.asarray(gradients)
+                )
 
-            # Calculating gradients for the hidden layers.
-            else:
-                # For each connection in the previous layer calculate bias for which the derivative is 1.
-                for connection in range(self.model[self.neuron_num_layer][previous_layer]):
-                    delta_bias[layer][neuron] = delta[previous_layer][connection][neuron] * 1 * \
-                        activation_values[next_layer][connection]
-
-                # For each connection in the previous layer.
-                for connection in range(self.model[self.neuron_num_layer][previous_layer]):
-                    # Calculating common elements to avoid code duplication.
-                    delta[layer][neuron][connection] = delta[previous_layer][connection][neuron] * \
-                        derivative(activation_values[layer][neuron]) * \
-                        activation_values[next_layer][connection]
-
-    # Returning the calculated gradients.
-    return (delta, delta_bias)
-
-
-# WORK_IN_PROGRESS
-def stochastic_gradient_descent(self, learning_rate, loss, mini_batch):
-    pass
+    # Update rule for weight is weight = weight - (learning_rate * weight_derivative)
+    # Update rule for bias is bias = bias - (learning_rate * bias)
+    return weight_gradients, bias_gradients
