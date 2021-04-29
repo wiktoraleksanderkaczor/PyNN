@@ -30,4 +30,4 @@ class Neuron:
             Args:
                 input_val (numpy.array): The input tensor for the neuron.
         """
-        self.sum = np.dot(input_val, self.weights) + self.bias
+        self.sum = np.dot(self.weights, input_val) + self.bias

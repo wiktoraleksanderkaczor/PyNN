@@ -10,7 +10,7 @@ import numpy as np
 from neuron import Neuron
 from cost import mean_squared_loss
 from training import update_weights_and_bias, get_delta_structure, get_delta_bias_structure, apply_learning_rate, calculate_momentum
-
+from tqdm import tqdm
 
 class Model:
     def __init__(self, precision, weight_init, optimizer, loss):
@@ -91,44 +91,45 @@ class Model:
         return feed_forward
 
 
-    def train(self, epochs, training_data, max_iter, mini_batch=10, learning_rate=0.01, min_precision=0.001,
-              learning_rate_function="none", coefficient=0.9):
+    def train(self, epochs, training_data, learning_rate=0.01, min_precision=0.001):
         """
             Runs a optimizing algorithm on the neural network using a specified algorithm.
 
             Args:
-                function (str): A string representing the optimizing function to use.
-                epochs (int): The number of times that the given example is shown to the network.
-                input (numpy.array): A 1-dimensional array of the inputs to feed to the input layer.
-                actual (numpy.array): A 1-dimensional array of the expected values for the output layer.
+                epochs (int): The number of times that the dataset is shown to the network.
+                data (numpy.array, numpy.array): Two zipped 1-dimensional arrays of the input data and the expected values.
                 learning_rate (float): The learning rate hyperparameter for determining how quickly a network can learn.
-                max_iter (int): The maximum number of iterations ran on a given example.
-                mini_batch (int): The mini batch size for stochastic gradient descent. Warning; Unimplemented.
-                min_precision (float): The minimum change in the error of the network for iteration until it exits.
+                min_precision (float): The minimum change in the error of the network for until it exits.
         """
         # Repeating training the network on the examples for N epochs.
         for epoch in range(epochs): 
             epoch_loss = 0
             # For each example do...
-            for input_data, expected in training_data:
-                # Running multiple iterations for gradient descent.
-                for iteration in range(max_iter):
-                    # I'm only running it once for one example to preserve the set sums.
-                    predicted = self.step(input_data)
+            for input_data, expected in tqdm(training_data):
+                # Run for given example
+                predicted = self.step(input_data)
 
-                    # Loss for optimizers has to be a scalar so I'm choosing a sum.
-                    loss = self.loss(predicted, expected)
-                    epoch_loss += loss
+                # Loss for optimizers
+                loss = self.loss(predicted, expected)  
+                
+                # Add to total epoch loss for tracking.
+                epoch_loss += loss
 
-                    # Run training on single example.
-                    weight_gradients, bias_gradients = self.optimizer(self.model, expected, loss=loss, learning_rate=learning_rate)
-                    
+                # Run training on single example.
+
+                gradients = self.optimizer(self.model, expected, loss=loss)
+                exec("")
+                
+        # Print statistics
         print("EPOCH: ", epoch)
         print("LOSS: ", epoch_loss)
+
+        # Exit condition
         if epoch_loss <= min_precision:
             print("Reached desired precision.")
             return
-        epoch_loss = 0
+        else:
+            epoch_loss = 0
 
 
 def save_network(model):

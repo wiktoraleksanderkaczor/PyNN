@@ -19,7 +19,7 @@ label_series = pd.Series(train_labels)
 train_labels = np.array(pd.get_dummies(label_series).values.tolist())
 data = list(zip(train_data, train_labels))
 
-model.train(epochs=10, training_data=data, max_iter=5, learning_rate=0.1, min_precision=0.1, learning_rate_function="momentum", coefficient=0.9)
+model.train(epochs=10, training_data=data, learning_rate=0.1, min_precision=0.1)
 
 # Saving network to file.
 pynn.save_network(model)
