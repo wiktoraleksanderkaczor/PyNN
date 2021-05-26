@@ -9,7 +9,7 @@ import pickle
 import numpy as np
 from neuron import Neuron
 from cost import mean_squared_loss
-from training import update_weights_and_bias, get_delta_structure, get_delta_bias_structure, apply_learning_rate, calculate_momentum
+from optimizer import update_weights_and_bias 
 from tqdm import tqdm
 
 class Model:
@@ -25,7 +25,7 @@ class Model:
         self.precision = precision
         self.weight_init = weight_init
         self.optimizer = optimizer
-        self.loss = loss
+        self.loss = loss        
 
     def add_layer(self, num_neurons, neuron_activation):
         """
@@ -103,9 +103,11 @@ class Model:
         """
         # Repeating training the network on the examples for N epochs.
         for epoch in range(epochs): 
-            epoch_loss = 0
+            tq = tqdm(total=len(training_data))
+
             # For each example do...
-            for input_data, expected in tqdm(training_data):
+            epoch_loss = 0
+            for input_data, expected in training_data:
                 # Run for given example
                 predicted = self.step(input_data)
 
@@ -116,13 +118,18 @@ class Model:
                 epoch_loss += loss
 
                 # Run training on single example.
-
-                gradients = self.optimizer(self.model, expected, loss=loss)
-                exec("")
+                weight_gradients, bias_gradients = self.optimizer(self.model, input_data, loss=loss)
+                update_weights_and_bias(self.model, weight_gradients, bias_gradients, learning_rate=learning_rate)
+                
+                tq.update(1)
+                tq.set_postfix_str("Loss: {}".format(loss))
+                print(loss)
+            
+            tq.close()
                 
         # Print statistics
         print("EPOCH: ", epoch)
-        print("LOSS: ", epoch_loss)
+        print("EPOCH LOSS: ", epoch_loss)
 
         # Exit condition
         if epoch_loss <= min_precision:

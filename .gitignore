@@ -11,3 +11,6 @@ model.obj
 
 TODO_FOR_PYNN.txt
 /.vs
+
+profiling_stats.txt
+.prof_stats
