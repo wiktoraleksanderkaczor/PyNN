@@ -118,7 +118,7 @@ class Model:
                 epoch_loss += loss
 
                 # Run training on single example.
-                weight_gradients, bias_gradients = self.optimizer(self.model, input_data, loss=loss)
+                weight_gradients, bias_gradients = self.optimizer(self.model, loss=loss)
                 update_weights_and_bias(self.model, weight_gradients, bias_gradients, learning_rate=learning_rate)
                 
                 tq.update(1)

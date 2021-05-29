@@ -4,3 +4,4 @@ jaxlib
 # alternatively; jaxlib with CUDA.
 numpy
 scikit-learn
+tqdm

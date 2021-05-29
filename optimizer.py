@@ -7,7 +7,7 @@ import numpy as np
 from itertools import repeat
 
 # WORK_IN_PROGRESS
-def gradient_descent(model, input_data, loss):
+def gradient_descent(model, loss):
     """
         Calculating the gradients for the weights and biases of each neuron. 
     """
@@ -25,7 +25,7 @@ def gradient_descent(model, input_data, loss):
         # Hidden or output layers, the error is substituted by the neuron_error:
         if layer != model["layers"][0]:
             summed_influence = sum(neuron_error[layer_num+1])
-            for num_neuron, neuron in enumerate(layer["neurons"]):
+            for neuron in layer["neurons"]:
                 summed_influence_derivative = layer["activation"].derivative(neuron.sum) * summed_influence 
 
                 neuron_weight_error = [
@@ -44,12 +44,11 @@ def gradient_descent(model, input_data, loss):
         # Input layer (only one weight)
         else:
             summed_influence = sum(neuron_error[layer_num+1])
-            for num_neuron, neuron in enumerate(layer["neurons"]): 
-                summed_influence_derivative = layer["activation"].derivative(neuron.sum) * summed_influence 
-
+            for neuron in layer["neurons"]:
+                # The neuron sum is essentially the input or the activation of the previous layer 
                 neuron_weight_error = [
-                    input_data[num_neuron] * summed_influence_derivative
-                ]
+                    neuron.sum * layer["activation"].derivative(neuron.sum) * summed_influence
+                ] 
 
                 # Only one per neuron
                 bias_gradients[layer_num].append(
