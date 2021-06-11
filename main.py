@@ -20,7 +20,7 @@ def main():
     import pandas as pd
     label_series = pd.Series(train_labels)
     train_labels = np.array(pd.get_dummies(label_series).values.tolist())
-    data = list(zip(train_data, train_labels))
+    data = np.array(list(zip(train_data, train_labels)))
 
     model.train(epochs=1, training_data=data, learning_rate=0.01, min_precision=0.1)
 

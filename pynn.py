@@ -102,11 +102,10 @@ class Model:
                 min_precision (float): The minimum change in the error of the network for until it exits.
         """
         # Repeating training the network on the examples for N epochs.
-        for epoch in range(epochs): 
-            tq = tqdm(total=len(training_data))
-
+        for epoch in range(epochs):
             # For each example do...
             epoch_loss = 0
+            tq = tqdm(total=len(training_data))
             for input_data, expected in training_data:
                 # Run for given example
                 predicted = self.step(input_data)
@@ -118,12 +117,11 @@ class Model:
                 epoch_loss += loss
 
                 # Run training on single example.
-                weight_gradients, bias_gradients = self.optimizer(self.model, loss=loss)
+                weight_gradients, bias_gradients = self.optimizer(self.model, input_data, loss=loss)
                 update_weights_and_bias(self.model, weight_gradients, bias_gradients, learning_rate=learning_rate)
                 
                 tq.update(1)
                 tq.set_postfix_str("Loss: {}".format(loss))
-                print(loss)
             
             tq.close()
                 
